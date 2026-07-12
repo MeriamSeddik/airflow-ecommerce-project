@@ -1,9 +1,11 @@
 pipeline {
-    // On dit à Jenkins d'exécuter le pipeline dans un conteneur Python temporaire
-    agent {
-        docker {
-            image 'python:3.10-slim'
-        }
+    agent any
+
+    environment {
+        // Chemin absolu vers le Python de ton environnement virtuel sous Windows
+        PYTHON_VENV_EXE = 'C:\\Users\\MERIAM\\PycharmProjects\\airflow-ecommerce-project\\.venv\\Scripts\\python.exe'
+        PIP_VENV_EXE    = 'C:\\Users\\MERIAM\\PycharmProjects\\airflow-ecommerce-project\\.venv\\Scripts\\pip.exe'
+        PYTEST_VENV_EXE = 'C:\\Users\\MERIAM\\PycharmProjects\\airflow-ecommerce-project\\.venv\\Scripts\\pytest.exe'
     }
 
     stages {
@@ -16,31 +18,30 @@ pipeline {
 
         stage('2. Install dependencies') {
             steps {
-                echo 'Installation des dépendances dans l\'environnement isolé...'
-                sh '''
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
+                echo 'Installation des dépendances dans le venv local...'
+                // Utilisation directe du pip de ton projet
+                sh "${env.PIP_VENV_EXE} install --upgrade pip"
+                sh "${env.PIP_VENV_EXE} install -r requirements.txt"
             }
         }
 
         stage('3. Run tests') {
             steps {
                 echo 'Exécution des tests unitaires avec pytest...'
-                sh 'pytest tests/test_pipeline.py'
+                sh "${env.PYTEST_VENV_EXE} tests/test_pipeline.py"
             }
         }
 
         stage('4. Validate DAG') {
             steps {
                 echo 'Validation syntaxique du DAG Airflow...'
-                sh 'python -m py_compile dags/*.py'
+                sh "${env.PYTHON_VENV_EXE} -m py_compile dags/*.py"
             }
         }
 
         stage('5. Deploy DAG') {
             steps {
-                echo 'Le code a été validé avec succès et est prêt à tourner sur Airflow !'
+                echo 'Le code a été validé avec succès !'
             }
         }
     }
