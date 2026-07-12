@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    // On dit à Jenkins d'exécuter le pipeline dans un conteneur Python temporaire
+    agent {
+        docker {
+            image 'python:3.10-slim'
+        }
+    }
 
     stages {
         stage('1. Checkout') {
@@ -9,13 +14,10 @@ pipeline {
             }
         }
 
-        stage('2. Setup & Install') {
+        stage('2. Install dependencies') {
             steps {
-                echo 'Création de l\'environnement virtuel et installation des dépendances...'
-                // On crée un environnement virtuel propre à Jenkins et on installe les paquets
+                echo 'Installation des dépendances dans l\'environnement isolé...'
                 sh '''
-                    python3 -m venv .jenkins-venv
-                    . .jenkins-venv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
                 '''
@@ -25,26 +27,20 @@ pipeline {
         stage('3. Run tests') {
             steps {
                 echo 'Exécution des tests unitaires avec pytest...'
-                sh '''
-                    . .jenkins-venv/bin/activate
-                    pytest tests/test_pipeline.py
-                '''
+                sh 'pytest tests/test_pipeline.py'
             }
         }
 
         stage('4. Validate DAG') {
             steps {
                 echo 'Validation syntaxique du DAG Airflow...'
-                sh '''
-                    . .jenkins-venv/bin/activate
-                    python -m py_compile dags/*.py
-                '''
+                sh 'python -m py_compile dags/*.py'
             }
         }
 
         stage('5. Deploy DAG') {
             steps {
-                echo 'Le fichier est disponible pour Airflow via les volumes partagés.'
+                echo 'Le code a été validé avec succès et est prêt à tourner sur Airflow !'
             }
         }
     }
