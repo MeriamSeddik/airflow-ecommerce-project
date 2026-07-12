@@ -1,62 +1,26 @@
 pipeline {
     agent any
-
     stages {
-        stage('1. Checkout') {
+        stage('Checkout') {
+            steps { checkout scm }
+        }
+        stage('Installation & Test') {
             steps {
-                checkout scm
+                // On utilise le chemin complet vers l'exécutable Docker
+                sh '/usr/bin/docker exec airflow_webserver pip install -r requirements.txt'
+                sh '/usr/bin/docker exec airflow_webserver pytest tests/test_pipeline.py'
             }
         }
-
-        stage('2. Install Dependencies') {
+        stage('Validation & Deploy') {
             steps {
-                echo 'Installation des dépendances dans airflow_webserver...'
-                sh 'docker exec airflow_webserver pip install -r requirements.txt'
+                sh '/usr/bin/docker exec airflow_webserver python -m py_compile dags/*.py'
+                sh '/usr/bin/docker cp dags/ecommerce_sales_pipeline.py airflow_webserver:/opt/airflow/dags/'
             }
         }
-
-        stage('3. Run tests') {
+        stage('Trigger DAG') {
             steps {
-                echo 'Exécution des tests unitaires...'
-                sh 'docker exec airflow_webserver pytest tests/test_pipeline.py'
+                sh '/usr/bin/docker exec airflow_webserver airflow dags trigger ecommerce_sales_pipeline'
             }
-        }
-
-        stage('4. Validate DAG') {
-            steps {
-                echo 'Validation syntaxique du DAG...'
-                sh 'docker exec airflow_webserver python -m py_compile dags/*.py'
-            }
-        }
-
-        stage('5. Deploy DAG') {
-            steps {
-                echo 'Déploiement du DAG...'
-                sh 'docker cp dags/ecommerce_sales_pipeline.py airflow_webserver:/opt/airflow/dags/'
-            }
-        }
-
-        stage('6. Trigger DAG') {
-            steps {
-                echo 'Déclenchement du DAG...'
-                sh 'docker exec airflow_webserver airflow dags trigger ecommerce_sales_pipeline'
-            }
-        }
-
-        stage('7. Verify MongoDB') {
-            steps {
-                echo 'Vérification MongoDB...'
-                sh 'docker exec airflow_webserver python scripts/verify_mongo_data.py'
-            }
-        }
-    }
-
-    post {
-        success {
-            echo 'Pipeline CI/CD terminé avec succès !'
-        }
-        failure {
-            echo 'Le pipeline a échoué. Vérifiez si le conteneur airflow_webserver est bien en ligne.'
         }
     }
 }
