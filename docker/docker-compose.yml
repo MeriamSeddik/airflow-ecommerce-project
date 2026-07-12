@@ -1,0 +1,87 @@
+version: '3.8'
+
+networks:
+  data-network:
+    driver: bridge
+
+services:
+  # --- MONGODB ---
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb_container
+    ports:
+      - "27017:27017"
+    networks:
+      - data-network
+    volumes:
+      - mongo_data:/data/db
+
+  # --- POSTGRESQL (Base de données interne pour Airflow) ---
+  postgres:
+    image: postgres:13
+    container_name: postgres_container
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    networks:
+      - data-network
+
+  # --- APACHE AIRFLOW (Webserver + Scheduler) ---
+  airflow-webserver:
+    image: apache/airflow:2.7.1-python3.9
+    container_name: airflow_webserver
+    depends_on:
+      - postgres
+      - mongodb
+    environment:
+      - LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - PYTHONPATH=/opt/airflow
+      - _PIP_ADDITIONAL_REQUIREMENTS=pymongo pandas
+      - AIRFLOW__WEBSERVER__SECRET_KEY=ma_cle_secrete_super_securisee_123
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../scripts:/opt/airflow/scripts
+      - ../data:/opt/airflow/data
+    ports:
+      - "8080:8080"
+    command: bash -c "airflow db init && airflow users create --username airflow --password airflow --firstname Meriam --lastname Admin --role Admin --email admin@example.com && airflow webserver"
+    networks:
+      - data-network
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.1-python3.9
+    container_name: airflow_scheduler
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - PYTHONPATH=/opt/airflow
+      - _PIP_ADDITIONAL_REQUIREMENTS=pymongo pandas
+      - AIRFLOW__WEBSERVER__SECRET_KEY=ma_cle_secrete_super_securisee_123
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../data:/opt/airflow/data
+    command: scheduler
+    networks:
+      - data-network
+
+  # --- JENKINS (Configuré sur le port 8082 !) ---
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins_container
+    user: root
+    ports:
+      - "8089:8080"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - data-network
+
+volumes:
+  mongo_data:
+  jenkins_data:
