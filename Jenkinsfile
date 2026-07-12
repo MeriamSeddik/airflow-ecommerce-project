@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        // Remplace par le nom exact de ton conteneur Airflow qui possède la CLI (souvent airflow-scheduler ou airflow-webserver)
+        // Nom de ton conteneur Airflow (ex: airflow-scheduler ou le nom généré par docker-compose)
         AIRFLOW_CONTAINER = 'airflow-scheduler'
     }
 
@@ -16,23 +16,24 @@ pipeline {
 
         stage('2. Install dependencies') {
             steps {
-                echo 'Installation des dépendances Python...'
-                sh 'pip install --upgrade pip'
-                sh 'pip install -r requirements.txt'
+                echo 'Installation des dépendances Python dans le conteneur Airflow...'
+                // On exécute la commande direct dans le conteneur Airflow
+                sh "docker exec -t ${env.AIRFLOW_CONTAINER} pip install --upgrade pip"
+                sh "docker exec -t ${env.AIRFLOW_CONTAINER} pip install -r requirements.txt"
             }
         }
 
         stage('3. Run tests') {
             steps {
-                echo 'Exécution des tests unitaires avec pytest...'
-                sh 'pytest tests/test_pipeline.py'
+                echo 'Exécution des tests unitaires avec pytest dans Airflow...'
+                sh "docker exec -t ${env.AIRFLOW_CONTAINER} pytest tests/test_pipeline.py"
             }
         }
 
         stage('4. Validate DAG') {
             steps {
                 echo 'Validation syntaxique du DAG Airflow...'
-                sh 'python -m py_compile dags/*.py'
+                sh "docker exec -t ${env.AIRFLOW_CONTAINER} python -m py_compile dags/ecommerce_sales_pipeline.py"
             }
         }
 
@@ -53,7 +54,7 @@ pipeline {
         stage('7. Verify MongoDB') {
             steps {
                 echo 'Vérification finale des indicateurs stockés dans MongoDB...'
-                sh 'python scripts/check_mongodb.py'
+                sh "docker exec -t ${env.AIRFLOW_CONTAINER} python scripts/check_mongodb.py"
             }
         }
     }
