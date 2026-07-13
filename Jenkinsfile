@@ -3,15 +3,17 @@ pipeline {
     stages {
         stage('Installation & Test') {
             steps {
-                // Utilisation de l'utilisateur 'airflow' comme demandé par le conteneur
-                sh 'docker exec -u airflow airflow_webserver pip install --user -r requirements.txt'
-                sh 'docker exec -u airflow airflow_webserver pytest tests/test_pipeline.py'
+                // Utilisation de python -m pip pour garantir le bon chemin d'accès
+                sh 'docker exec -u airflow airflow_webserver python -m pip install --user -r requirements.txt'
+                
+                // Idem pour pytest
+                sh 'docker exec -u airflow airflow_webserver python -m pytest tests/test_pipeline.py'
             }
         }
         stage('Validation & Deploy') {
             steps {
                 sh 'docker exec -u airflow airflow_webserver python -m py_compile dags/*.py'
-                // Note : Pour le cp, on reste en root car l'utilisateur airflow n'a peut-être pas le droit d'écrire dans /opt/airflow/dags/
+                // La copie doit rester en root pour avoir les droits d'écriture dans /opt/airflow/dags/
                 sh 'docker cp dags/ecommerce_sales_pipeline.py airflow_webserver:/opt/airflow/dags/'
             }
         }
