@@ -37,12 +37,13 @@ with DAG(
     tags=['ecommerce', 'mongodb'],
 ) as dag:
 
+
     wait_for_dataset = FileSensor(
         task_id='wait_for_dataset',
-        filepath=TARGET_FILE,
+        filepath='data/dataset.csv',
         fs_conn_id='fs_default',
         poke_interval=10,
-        timeout=60,
+        timeout=120,
         mode='poke',
     )
 
