@@ -3,20 +3,19 @@ pipeline {
     stages {
         stage('Installation & Test') {
             steps {
-                // 1. Installation des dépendances
                 sh 'docker exec -u airflow airflow_webserver python -m pip install --user -r requirements.txt'
                 
-                // 2. CORRECTION : Copie du dossier tests dans le conteneur
-                // On utilise root pour copier car le dossier /opt/airflow appartient à root
-                sh 'docker cp tests/ airflow_webserver:/opt/airflow/'
+                // On copie tout le contenu du dossier tests vers le conteneur
+                sh 'docker cp tests/. airflow_webserver:/opt/airflow/tests/'
                 
-                // 3. Lancement des tests
-                sh 'docker exec -u airflow airflow_webserver python -m pytest tests/test_pipeline.py'
+                // On lance pytest en ciblant explicitement le fichier
+                sh 'docker exec -u airflow airflow_webserver python -m pytest /opt/airflow/tests/test_pipeline.py'
             }
         }
         stage('Validation & Deploy') {
             steps {
-                sh 'docker exec -u airflow airflow_webserver python -m py_compile dags/*.py'
+                // Attention : tes dags sont dans dags/ecommerce_sales_pipeline.py
+                sh 'docker exec -u airflow airflow_webserver python -m py_compile dags/ecommerce_sales_pipeline.py'
                 sh 'docker cp dags/ecommerce_sales_pipeline.py airflow_webserver:/opt/airflow/dags/'
             }
         }
