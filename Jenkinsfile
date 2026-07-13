@@ -3,30 +3,34 @@ pipeline {
     stages {
         stage('Installation & Test') {
             steps {
-                // 1. Installation des dépendances
+                // Installation des dépendances
                 sh 'docker exec -u airflow airflow_webserver python -m pip install --user -r requirements.txt'
-                
-                // 2. Copie du dossier tests
+
+                // Copie des tests et exécution
                 sh 'docker cp tests/. airflow_webserver:/opt/airflow/tests/'
-                
-                // 3. Debug : Vérification que les fichiers sont bien présents dans le conteneur
-                sh 'docker exec -u airflow airflow_webserver ls -la /opt/airflow/tests/'
-                
-                // 4. Lancement des tests avec mode verbeux sur le dossier
                 sh 'docker exec -u airflow airflow_webserver python -m pytest -v /opt/airflow/tests/'
             }
         }
+
         stage('Validation & Deploy') {
             steps {
-                // Validation syntaxique du DAG
+                // Validation syntaxique du fichier DAG
                 sh 'docker exec -u airflow airflow_webserver python -m py_compile dags/ecommerce_sales_pipeline.py'
-                
+
                 // Déploiement vers Airflow
                 sh 'docker cp dags/ecommerce_sales_pipeline.py airflow_webserver:/opt/airflow/dags/'
             }
         }
+
         stage('Trigger DAG') {
             steps {
+                // 1. Attendre que le file system d'Airflow détecte le nouveau fichier
+                sh 'sleep 10'
+
+                // 2. Vérifier que le DAG est bien reconnu par Airflow avant de déclencher
+                sh 'docker exec -u airflow airflow_webserver airflow dags list | grep ecommerce_sales_pipeline'
+
+                // 3. Déclencher le DAG
                 sh 'docker exec -u airflow airflow_webserver airflow dags trigger ecommerce_sales_pipeline'
             }
         }
