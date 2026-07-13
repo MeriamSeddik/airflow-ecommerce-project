@@ -37,10 +37,9 @@ with DAG(
     tags=['ecommerce', 'mongodb'],
 ) as dag:
 
-
     wait_for_dataset = FileSensor(
         task_id='wait_for_dataset',
-        filepath='data/dataset.csv',
+        filepath='/opt/airflow/data/dataset.csv',
         fs_conn_id='fs_default',
         poke_interval=10,
         timeout=120,
