@@ -42,7 +42,7 @@ def store_to_mongo_func(**context):
         print("Aucune donnée à stocker.")
         return
 
-    client = MongoClient("mongodb://root:example@mongodb:27017/")
+    client = MongoClient("mongodb://mongodb:27017/")
     db = client['ecommerce_db']
     db.metrics.insert_one({
         "metrics": metrics,
