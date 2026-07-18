@@ -3,7 +3,7 @@ from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.empty import EmptyOperator
 from airflow.sensors.filesystem import FileSensor
 from airflow.utils.trigger_rule import TriggerRule
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 from pymongo import MongoClient
 import os
@@ -80,7 +80,16 @@ def store_to_mongo_func(**context):
 default_args = {'owner': 'airflow', 'start_date': datetime(2026, 7, 12)}
 
 with DAG('ecommerce_sales_pipeline', default_args=default_args, schedule_interval=None, catchup=False) as dag:
-    wait_for_dataset = FileSensor(task_id='wait_for_dataset', filepath='dataset.csv', fs_conn_id='fs_default')
+    # Capteur optimisé : avec timeout et mode reschedule pour ne pas bloquer les ressources
+    wait_for_dataset = FileSensor(
+        task_id='wait_for_dataset',
+        filepath='dataset.csv',
+        fs_conn_id='fs_default',
+        timeout=3600,  # Échoue après 1 heure si pas de fichier
+        mode='reschedule',  # Libère le worker entre deux vérifications
+        poke_interval=60  # Vérifie toutes les 60 secondes
+    )
+
     check_quality = BranchPythonOperator(task_id='check_quality', python_callable=check_quality_func)
     stop_pipeline = EmptyOperator(task_id='stop_pipeline')
     process_data = PythonOperator(task_id='process_data', python_callable=process_data_func)
