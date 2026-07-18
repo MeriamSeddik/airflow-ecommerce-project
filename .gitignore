@@ -1,0 +1,10 @@
+# Fichiers Python
+__pycache__/
+*.pyc
+
+# Configuration IDE
+.idea/
+
+# Dossiers Docker/données
+docker/jenkins_home/
+data/

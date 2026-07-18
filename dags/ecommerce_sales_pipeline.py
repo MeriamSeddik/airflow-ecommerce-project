@@ -12,7 +12,6 @@ import os
 # --- FONCTIONS DE TRAITEMENT ---
 
 def check_quality_func():
-    # Points 2, 3 & 4 : Vérification existence, non-vide et qualité minimale
     path = '/opt/airflow/data/dataset.csv'
     if not os.path.exists(path) or os.path.getsize(path) == 0:
         return 'stop_pipeline'
@@ -23,20 +22,25 @@ def check_quality_func():
 
 
 def process_data_func(**context):
-    # Points 6 & 7 : Chargement et calcul des indicateurs
+    # Calcul basé sur les colonnes réelles : Quantity * UnitPrice
     df = pd.read_csv('/opt/airflow/data/dataset.csv')
+    df['total'] = df['Quantity'] * df['UnitPrice']
+
     metrics = {
-        "total_sales": float(df['sales'].sum()),
-        "average_sales": float(df['sales'].mean())
+        "total_sales": float(df['total'].sum()),
+        "average_sales": float(df['total'].mean())
     }
-    # Point 8 : Transmission automatique via XComs
     return metrics
 
 
 def store_to_mongo_func(**context):
-    # Point 12 : Stockage dans MongoDB
     ti = context['ti']
     metrics = ti.xcom_pull(task_ids='process_data')
+
+    # Si le pipeline a été arrêté, on ne fait rien
+    if metrics is None:
+        print("Aucune donnée à stocker.")
+        return
 
     client = MongoClient("mongodb://root:example@mongodb:27017/")
     db = client['ecommerce_db']
@@ -61,14 +65,12 @@ with DAG(
         schedule_interval=None,
         catchup=False
 ) as dag:
-    # Point 1 : FileSensor
     wait_for_dataset = FileSensor(
         task_id='wait_for_dataset',
         filepath='dataset.csv',
         fs_conn_id='fs_default'
     )
 
-    # Point 5 : BranchPythonOperator
     check_quality = BranchPythonOperator(
         task_id='check_quality',
         python_callable=check_quality_func
@@ -81,7 +83,6 @@ with DAG(
         python_callable=process_data_func
     )
 
-    # Point 9 : Tâches dynamiques
     categories = ['Electronics', 'Clothing', 'Home']
     analysis_tasks = [
         PythonOperator(
@@ -90,7 +91,6 @@ with DAG(
         ) for cat in categories
     ]
 
-    # Point 10 & 11 : Rapport final avec Trigger Rules
     final_report = PythonOperator(
         task_id='final_report',
         python_callable=store_to_mongo_func,
